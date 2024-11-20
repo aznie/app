@@ -13,7 +13,7 @@ public class SpaceshipController {
     private static final char EMPTY = '_';
     private static final int FIRE_RANGE = 4;
     private static final String FIRE_ACTION = "F";
-    private static int FIRE_ACTION_COUNTER = 0;
+    private static int FIRE_ACTION_COUNTER = 1;
     private static final int NARROWING_INTERVAL = 20;
     private static final int FIELD_SIZE = 13;
 
