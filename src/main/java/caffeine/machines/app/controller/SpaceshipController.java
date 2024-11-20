@@ -395,13 +395,23 @@ public class SpaceshipController {
     }
 
     private boolean isValidPosition(char[][] field, Position pos) {
-        return pos.row >= 0 &&
-                pos.row < field.length &&
-                pos.col >= 0 &&
-                pos.col < field[0].length &&
-                (field[pos.row][pos.col] == EMPTY || field[pos.row][pos.col] == COIN);
-    }
+        // First check boundaries
+        if (pos.row < 0 || pos.row >= field.length ||
+                pos.col < 0 || pos.col >= field[0].length) {
+            System.out.println("Position out of bounds: " + pos);
+            return false;
+        }
 
+        // Check cell content
+        char cell = field[pos.row][pos.col];
+        boolean isValid = cell == EMPTY || cell == COIN;
+
+        if (!isValid) {
+            System.out.println("Invalid cell content at " + pos + ": " + cell);
+        }
+
+        return isValid;
+    }
 
     private boolean hasNearbyAsteroid(char[][] field, Position pos) {
         // Check all adjacent cells including diagonals
@@ -569,11 +579,13 @@ public class SpaceshipController {
     private Direction getEnemyDirection(char[][] field, Position pos) {
         String cellContent = rawField.get(pos.row).get(pos.col);
         System.out.println("Getting enemy direction from: " + cellContent);
+
         if (cellContent.startsWith("E")) {
-            // Remove the 'E' prefix and any underscores
-            String dirString = cellContent.substring(1).replace("_", "");
-            System.out.println("Parsing direction: " + dirString);
-            return Direction.fromString(dirString);
+            String dirString = cellContent.substring(1);
+            System.out.println("Parsing enemy direction: " + dirString);
+            Direction dir = Direction.fromString(dirString);
+            System.out.println("Resolved to: " + dir);
+            return dir;
         }
         return Direction.NORTH; // Default if no direction found
     }
@@ -615,42 +627,39 @@ public class SpaceshipController {
     }
 
     private enum Direction {
-        NORTH('N', -1, 0, new String[]{"NORTH", "ENORTH"}),
-        SOUTH('S', 1, 0, new String[]{"SOUTH", "ESOUTH"}),
-        EAST('E', 0, 1, new String[]{"EAST", "EEAST"}),
-        WEST('W', 0, -1, new String[]{"WEST", "EWEST"});
+        NORTH('N', -1, 0),
+        SOUTH('S', 1, 0),
+        EAST('E', 0, 1),
+        WEST('W', 0, -1);
 
         final int dx;
         final int dy;
         final char symbol;
-        final String[] validNames;
 
-        Direction(char symbol, int dx, int dy, String[] validNames) {
+        Direction(char symbol, int dx, int dy) {
             this.symbol = symbol;
             this.dx = dx;
             this.dy = dy;
-            this.validNames = validNames;
-        }
-
-
-        static Direction fromChar(char c) {
-            return Arrays.stream(values())
-                    .filter(d -> d.symbol == c)
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException(
-                            String.format("Invalid direction char: '%c' (ASCII: %d)", c, (int) c)));
         }
 
         static Direction fromString(String s) {
-            // Try to match against any valid name
-            String input = s.toUpperCase().trim();
-            for (Direction d : values()) {
-                if (Arrays.asList(d.validNames).contains(input) ||
-                        input.equals(String.valueOf(d.symbol))) {
-                    return d;
-                }
+            if (s == null || s.isEmpty()) {
+                throw new IllegalStateException("Empty direction string");
             }
-            throw new IllegalStateException("Invalid direction string: " + s);
+
+            // Remove any 'E' prefix and clean the string
+            String cleaned = s.toUpperCase()
+                    .replace("E", "")
+                    .replace("_", "")
+                    .trim();
+
+            // Try to match by first character or full name
+            char firstChar = cleaned.charAt(0);
+
+            return Arrays.stream(values())
+                    .filter(d -> d.symbol == firstChar || d.name().equals(cleaned))
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException("Invalid direction string: " + s));
         }
 
         Direction turnLeft() {
@@ -663,7 +672,7 @@ public class SpaceshipController {
 
         @Override
         public String toString() {
-            return validNames.toString();
+            return name();
         }
     }
 
@@ -679,11 +688,12 @@ public class SpaceshipController {
 
     private String getMovementCommand(char[][] field, Position from, Direction currentDir, Position to) {
         Direction targetDir = getTargetDirection(from, to);
+        System.out.println("Current direction: " + currentDir + ", Target direction: " + targetDir);
 
         // If we're facing the right direction and can move, do it
         if (currentDir == targetDir) {
             Position next = from.move(currentDir);
-            if (isValidPosition(field, next)) {
+            if (isValidPosition(field, next)) {  // <-- Used here
                 return "M";
             }
         }
@@ -742,10 +752,11 @@ public class SpaceshipController {
         System.out.println("Player cell content: " + cellContent);
 
         if (cellContent.length() > 1) {
-            // Remove the 'P' prefix and any underscores
-            String dirString = cellContent.substring(1).replace("_", "");
-            System.out.println("Parsing direction: " + dirString);
-            return Direction.fromString(dirString);
+            String dirString = cellContent.substring(1);
+            System.out.println("Parsing player direction: " + dirString);
+            Direction dir = Direction.fromString(dirString);
+            System.out.println("Resolved to: " + dir);
+            return dir;
         }
         throw new IllegalStateException("No direction found in player cell: " + cellContent);
     }
