@@ -578,16 +578,18 @@ public class SpaceshipController {
 
     private Direction getEnemyDirection(char[][] field, Position pos) {
         String cellContent = rawField.get(pos.row).get(pos.col);
-        System.out.println("Getting enemy direction from: " + cellContent);
+        System.out.println("Enemy cell content: '" + cellContent + "'");
 
         if (cellContent.startsWith("E")) {
             String dirString = cellContent.substring(1);
-            System.out.println("Parsing enemy direction: " + dirString);
+            System.out.println("Parsing enemy direction from: '" + dirString + "'");
             Direction dir = Direction.fromString(dirString);
-            System.out.println("Resolved to: " + dir);
+            System.out.println("Resolved enemy direction to: " + dir);
             return dir;
         }
-        return Direction.NORTH; // Default if no direction found
+
+        System.out.println("No direction found in enemy cell, defaulting to NORTH");
+        return Direction.NORTH;
     }
 
     private static class Position {
@@ -643,23 +645,45 @@ public class SpaceshipController {
         }
 
         static Direction fromString(String s) {
+            System.out.println("Parsing direction from string: '" + s + "'");
+
             if (s == null || s.isEmpty()) {
-                throw new IllegalStateException("Empty direction string");
+                System.out.println("Empty direction string, defaulting to NORTH");
+                return NORTH;
             }
 
-            // Remove any 'E' prefix and clean the string
+            // Clean the string: remove E prefix, underscores, and whitespace
             String cleaned = s.toUpperCase()
                     .replace("E", "")
                     .replace("_", "")
                     .trim();
 
-            // Try to match by first character or full name
-            char firstChar = cleaned.charAt(0);
+            System.out.println("Cleaned direction string: '" + cleaned + "'");
 
-            return Arrays.stream(values())
-                    .filter(d -> d.symbol == firstChar || d.name().equals(cleaned))
-                    .findFirst()
-                    .orElseThrow(() -> new IllegalStateException("Invalid direction string: " + s));
+            if (cleaned.isEmpty()) {
+                System.out.println("Cleaned string is empty, defaulting to NORTH");
+                return NORTH;
+            }
+
+            // First try exact character match
+            char firstChar = cleaned.charAt(0);
+            for (Direction d : values()) {
+                if (d.symbol == firstChar) {
+                    System.out.println("Found direction by symbol: " + d);
+                    return d;
+                }
+            }
+
+            // Then try name match
+            for (Direction d : values()) {
+                if (d.name().equals(cleaned)) {
+                    System.out.println("Found direction by name: " + d);
+                    return d;
+                }
+            }
+
+            System.out.println("No direction match found, defaulting to NORTH");
+            return NORTH;
         }
 
         Direction turnLeft() {
@@ -749,16 +773,18 @@ public class SpaceshipController {
 
     private Direction getPlayerDirection(Position pos) {
         String cellContent = rawField.get(pos.row).get(pos.col);
-        System.out.println("Player cell content: " + cellContent);
+        System.out.println("Player cell content: '" + cellContent + "'");
 
         if (cellContent.length() > 1) {
             String dirString = cellContent.substring(1);
-            System.out.println("Parsing player direction: " + dirString);
+            System.out.println("Parsing player direction from: '" + dirString + "'");
             Direction dir = Direction.fromString(dirString);
-            System.out.println("Resolved to: " + dir);
+            System.out.println("Resolved player direction to: " + dir);
             return dir;
         }
-        throw new IllegalStateException("No direction found in player cell: " + cellContent);
+
+        System.out.println("No direction found in player cell, defaulting to NORTH");
+        return Direction.NORTH;
     }
 
     public static class GameState {
