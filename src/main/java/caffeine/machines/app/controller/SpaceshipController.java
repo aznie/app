@@ -93,51 +93,46 @@ public class SpaceshipController {
     }
 
     private String calculateBestMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
-        // Debug current state
-        System.out.println("\nCalculating best move:");
-        System.out.println("Player position: " + playerPos);
-        System.out.println("Player direction: " + playerDir);
-        System.out.println("Narrowing in: " + narrowingIn);
-
-        // Check for immediate threats first
-        String emergencyMove = handleEmergency(field, playerPos, playerDir, narrowingIn);
-        if (emergencyMove != null) {
-            System.out.println("Emergency move: " + emergencyMove);
-            return emergencyMove;
-        }
-
-        // Look for coins
-        List<Position> coins = findEntities(field, COIN);
-        if (!coins.isEmpty()) {
-            Position nearestCoin = findNearestCoin(field, playerPos, coins);
-            if (nearestCoin != null) {
-                System.out.println("Found nearest coin at: " + nearestCoin);
-                String moveTowardsCoin = getMovementCommand(field, playerPos, playerDir, nearestCoin);
-                System.out.println("Moving towards coin: " + moveTowardsCoin);
-                return moveTowardsCoin;
+        try {
+            // Check for immediate threats first
+            String emergencyMove = handleEmergency(field, playerPos, playerDir, narrowingIn);
+            if (emergencyMove != null) {
+                System.out.println("Emergency move: " + emergencyMove);
+                return emergencyMove;
             }
-        }
 
-        // Check for firing opportunities
-        List<Position> enemies = findEntities(field, ENEMY);
-        if (!enemies.isEmpty()) {
-            String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
-            if (fireMove != null) {
-                System.out.println("Firing opportunity found");
-                return fireMove;
+            // Look for nearby coins
+            List<Position> coins = findEntities(field, COIN);
+            if (!coins.isEmpty()) {
+                Position nearestCoin = findNearestCoin(field, playerPos, coins);
+                if (nearestCoin != null) {
+                    System.out.println("Found nearest coin at: " + nearestCoin);
+                    return getMovementCommand(field, playerPos, playerDir, nearestCoin);
+                }
             }
-        }
 
-        // If no immediate targets, move towards center
-        Position center = new Position(FIELD_SIZE / 2, FIELD_SIZE / 2);
-        if (!playerPos.equals(center)) {
-            String centerMove = getMovementCommand(field, playerPos, playerDir, center);
-            System.out.println("Moving towards center: " + centerMove);
-            return centerMove;
-        }
+            // Check for firing opportunities
+            List<Position> enemies = findEntities(field, ENEMY);
+            if (!enemies.isEmpty()) {
+                String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
+                if (fireMove != null) {
+                    return fireMove;
+                }
+            }
 
-        // If at center, rotate to scan for opportunities
-        return "R";
+            // Move towards center if not too far
+            Position center = new Position(FIELD_SIZE / 2, FIELD_SIZE / 2);
+            if (!playerPos.equals(center) && playerPos.distanceTo(center) < FIELD_SIZE) {
+                return getMovementCommand(field, playerPos, playerDir, center);
+            }
+
+            // Default to rotation if no other moves are good
+            return "R";
+        } catch (Exception e) {
+            System.err.println("Error in calculateBestMove: " + e.getMessage());
+            e.printStackTrace();
+            return "M"; // Default to moving forward on error
+        }
     }
 
     private Position findNearestCoin(char[][] field, Position playerPos, List<Position> coins) {
@@ -146,19 +141,29 @@ public class SpaceshipController {
 
         for (Position coin : coins) {
             double distance = playerPos.distanceTo(coin);
-            if (distance < minDistance && isPathSafe(field, playerPos, coin)) {
-                minDistance = distance;
-                nearest = coin;
+            // Only check paths for reasonably close coins
+            if (distance < FIELD_SIZE && distance < minDistance) {
+                if (isPathSafe(field, playerPos, coin)) {
+                    minDistance = distance;
+                    nearest = coin;
+                }
             }
         }
 
         return nearest;
     }
 
+
     private boolean isPathSafe(char[][] field, Position from, Position to) {
-        // Check if path is blocked by asteroids or enemies
+        // Quick distance check first
+        if (from.distanceTo(to) > FIELD_SIZE * 2) {
+            return false;
+        }
+
+        // Check key points along the path
         List<Position> path = getPath(from, to);
         for (Position pos : path) {
+            // Check if position is valid
             if (!isValidPosition(field, pos)) {
                 return false;
             }
@@ -166,7 +171,7 @@ public class SpaceshipController {
             // Check for nearby enemies
             List<Position> enemies = findEntities(field, ENEMY);
             for (Position enemy : enemies) {
-                if (pos.distanceTo(enemy) < 2) { // Avoid getting too close to enemies
+                if (pos.distanceTo(enemy) < 2) {
                     return false;
                 }
             }
@@ -176,13 +181,23 @@ public class SpaceshipController {
 
     private List<Position> getPath(Position from, Position to) {
         List<Position> path = new ArrayList<>();
-        int dx = Integer.compare(to.row - from.row, 0);
-        int dy = Integer.compare(to.col - from.col, 0);
-        Position current = from;
+        int maxSteps = Math.max(Math.abs(to.row - from.row), Math.abs(to.col - from.col));
 
-        while (!current.equals(to)) {
-            current = new Position(current.row + dx, current.col + dy);
-            path.add(current);
+        // Limit maximum path length to prevent memory issues
+        if (maxSteps > FIELD_SIZE * 2) {
+            System.out.println("Path too long, limiting steps");
+            return path;
+        }
+
+        // Calculate step sizes
+        double stepRow = (to.row - from.row) / (double) maxSteps;
+        double stepCol = (to.col - from.col) / (double) maxSteps;
+
+        // Generate path points
+        for (int i = 1; i <= maxSteps; i++) {
+            int row = from.row + (int) Math.round(stepRow * i);
+            int col = from.col + (int) Math.round(stepCol * i);
+            path.add(new Position(row, col));
         }
 
         return path;
