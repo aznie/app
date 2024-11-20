@@ -559,8 +559,11 @@ public class SpaceshipController {
 
     private Direction getEnemyDirection(char[][] field, Position pos) {
         String cellContent = rawField.get(pos.row).get(pos.col);
-        if (cellContent.length() > 1) {
-            String dirString = cellContent.substring(1);
+        System.out.println("Getting enemy direction from: " + cellContent);
+        if (cellContent.startsWith("E")) {
+            // Remove the 'E' prefix and any underscores
+            String dirString = cellContent.substring(1).replace("_", "");
+            System.out.println("Parsing direction: " + dirString);
             return Direction.fromString(dirString);
         }
         return Direction.NORTH; // Default if no direction found
@@ -603,22 +606,23 @@ public class SpaceshipController {
     }
 
     private enum Direction {
-        NORTH('N', -1, 0, "NORTH"),
-        SOUTH('S', 1, 0, "SOUTH"),
-        EAST('E', 0, 1, "EAST"),
-        WEST('W', 0, -1, "WEST");
+        NORTH('N', -1, 0, new String[]{"NORTH", "ENORTH"}),
+        SOUTH('S', 1, 0, new String[]{"SOUTH", "ESOUTH"}),
+        EAST('E', 0, 1, new String[]{"EAST", "EEAST"}),
+        WEST('W', 0, -1, new String[]{"WEST", "EWEST"});
 
         final int dx;
         final int dy;
         final char symbol;
-        final String fullName;
+        final String[] validNames;
 
-        Direction(char symbol, int dx, int dy, String fullName) {
+        Direction(char symbol, int dx, int dy, String[] validNames) {
             this.symbol = symbol;
             this.dx = dx;
             this.dy = dy;
-            this.fullName = fullName;
+            this.validNames = validNames;
         }
+
 
         static Direction fromChar(char c) {
             return Arrays.stream(values())
@@ -629,15 +633,13 @@ public class SpaceshipController {
         }
 
         static Direction fromString(String s) {
-            // First try matching the full name
+            // Try to match against any valid name
+            String input = s.toUpperCase().trim();
             for (Direction d : values()) {
-                if (d.fullName.equals(s)) {
+                if (Arrays.asList(d.validNames).contains(input) ||
+                        input.equals(String.valueOf(d.symbol))) {
                     return d;
                 }
-            }
-            // If that fails, try matching the first character
-            if (!s.isEmpty()) {
-                return fromChar(s.charAt(0));
             }
             throw new IllegalStateException("Invalid direction string: " + s);
         }
@@ -652,7 +654,7 @@ public class SpaceshipController {
 
         @Override
         public String toString() {
-            return fullName;
+            return validNames.toString();
         }
     }
 
@@ -731,8 +733,9 @@ public class SpaceshipController {
         System.out.println("Player cell content: " + cellContent);
 
         if (cellContent.length() > 1) {
-            // Get the direction part (everything after the first character)
-            String dirString = cellContent.substring(1);
+            // Remove the 'P' prefix and any underscores
+            String dirString = cellContent.substring(1).replace("_", "");
+            System.out.println("Parsing direction: " + dirString);
             return Direction.fromString(dirString);
         }
         throw new IllegalStateException("No direction found in player cell: " + cellContent);
