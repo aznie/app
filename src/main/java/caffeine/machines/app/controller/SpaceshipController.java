@@ -107,6 +107,13 @@ public class SpaceshipController {
         return fireMove;
       }
 
+      //check for avoiding shrinking field with asteroids
+      String moveFromAsteroids = checkForAsteroidTrap(field, playerPos, playerDir);
+      if (moveFromAsteroids != null) {
+        System.out.println("Should move from asteroids");
+        return moveFromAsteroids;
+      }
+
         // Look for coins with direct path
         List<Position> coins = findEntities(field, COIN);
         if (!coins.isEmpty()) {
@@ -120,13 +127,13 @@ public class SpaceshipController {
 
 
         // If we can't move and have been rotating, try to move in current direction
-//        if (lastMoves.size() >= 2 &&
-//                lastMoves.stream().allMatch(m -> m.equals("L") || m.equals("R"))) {
-//            if (canMoveForward(field, playerPos, playerDir)) {
-//                lastMoves.clear();
-//                return "M";
-//            }
-//        }
+        if (lastMoves.size() >= 2 &&
+                lastMoves.stream().allMatch(m -> m.equals("L") || m.equals("R"))) {
+            if (canMoveForward(field, playerPos, playerDir)) {
+                lastMoves.clear();
+                return "M";
+            }
+        }
 
         // Default to strategic movement
         String move = calculateStrategicMove(field, playerPos, playerDir, narrowingIn);
@@ -346,6 +353,38 @@ public class SpaceshipController {
         }
         FIRE_ACTION_COUNTER++;
         return null;
+    }
+
+    private String checkForAsteroidTrap(List<List<String>> field, Position playerPos, Direction playerDir) {
+      //check upper
+      if (field.get(playerPos.row - 1).get(playerPos.col).equals(ASTEROID)
+          && field.get(playerPos.row - 1).get(playerPos.col - 1).equals(ASTEROID)
+          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)) {
+        System.out.println("ASTEROIDS ON THE TOP");
+        return playerDir == Direction.NORTH ? "R" : "M";
+      }
+      // check right
+      if (field.get(playerPos.row).get(playerPos.col + 1).equals(ASTEROID)
+          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)
+          && field.get(playerPos.row + 1).get(playerPos.col + 1).equals(ASTEROID)) {
+        System.out.println("ASTEROIDS ON THE RIGHT");
+        return playerDir == Direction.EAST ? "R" : "M";
+      }
+      //check bottom
+      if (field.get(playerPos.row + 1).get(playerPos.col).equals(ASTEROID)
+          && field.get(playerPos.row + 1).get(playerPos.col - 1).equals(ASTEROID)
+          && field.get(playerPos.row + 1).get(playerPos.col + 1).equals(ASTEROID)) {
+        System.out.println("ASTEROIDS ON THE BOTTOM");
+        return playerDir == Direction.SOUTH ? "R" : "M";
+      }
+      //check left
+      if (field.get(playerPos.row).get(playerPos.col - 1).equals(ASTEROID)
+          && field.get(playerPos.row + 1).get(playerPos.col - 1).equals(ASTEROID)
+          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)) {
+        System.out.println("ASTEROIDS ON THE LEFT");
+        return playerDir == Direction.WEST ? "R" : "M";
+      }
+      return null;
     }
 
     private String calculateStrategicMove(List<List<String>>  field, Position playerPos, Direction playerDir, int narrowingIn) {
