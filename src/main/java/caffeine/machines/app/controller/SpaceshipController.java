@@ -47,74 +47,98 @@ public class SpaceshipController {
     int rows = field.length;
     int cols = field[0].length;
 
-    // Get all coins on the field
+    // Get all coins and enemies on the field
     List<int[]> coins = findEntities(field, 'C');
     List<int[]> enemies = findEntities(field, 'E');
 
-    // If in danger of narrowing, move to the center
-    if (playerPosition[0] < narrowingIn || playerPosition[0] >= rows - narrowingIn ||
-        playerPosition[1] < narrowingIn || playerPosition[1] >= cols - narrowingIn) {
+    // Avoid narrowing zones
+    if (isInNarrowingZone(playerPosition, narrowingIn, rows, cols)) {
       int[] safeZone = {rows / 2, cols / 2};
       return moveToTarget(playerPosition, safeZone, playerDirection, field);
     }
 
-    // Attack if an enemy is in range
-    if (enemyInRange(playerPosition, playerDirection, enemies, field)) {
-      return "F"; // Fire
+    // Evaluate possible actions
+    Action bestAction = evaluateBestAction(field, playerPosition, playerDirection, coins, enemies);
+    return bestAction.command;
+  }
+
+  private boolean isInNarrowingZone(int[] position, int narrowingIn, int rows, int cols) {
+    return position[0] < narrowingIn || position[0] >= rows - narrowingIn ||
+        position[1] < narrowingIn || position[1] >= cols - narrowingIn;
+  }
+
+  private Action evaluateBestAction(char[][] field, int[] playerPosition, char playerDirection, List<int[]> coins, List<int[]> enemies) {
+    Action bestAction = new Action("M", Integer.MIN_VALUE);
+
+    // Evaluate collecting coins
+    for (int[] coin : coins) {
+      int score = 10 - distance(playerPosition, coin); // Higher score for closer coins
+      String move = moveToTarget(playerPosition, coin, playerDirection, field);
+      if (!move.equals("X") && score > bestAction.score) { // Avoid invalid moves
+        bestAction = new Action(move, score);
+      }
     }
 
-    // Move toward the nearest coin
-    if (!coins.isEmpty()) {
-      int[] nearestCoin = findNearest(playerPosition, coins);
-      return moveToTarget(playerPosition, nearestCoin, playerDirection, field);
+    // Evaluate attacking enemies
+    for (int[] enemy : enemies) {
+      if (enemyInRange(playerPosition, playerDirection, List.of(enemy), field)) {
+        int score = 15; // Fixed score for attack
+        if (score > bestAction.score) {
+          bestAction = new Action("F", score);
+        }
+      }
     }
 
-    // Default move forward if no specific target
-    return "M";
+    // Evaluate survival (default move)
+    String safeMove = findSafeMove(playerPosition, playerDirection, field);
+    if (!safeMove.equals("X")) {
+      bestAction = new Action(safeMove, 5); // Low score but ensures movement
+    }
+
+    return bestAction;
+  }
+
+  private String findSafeMove(int[] playerPosition, char playerDirection, char[][] field) {
+    int dx = 0, dy = 0;
+    switch (playerDirection) {
+      case 'N': dx = -1; break;
+      case 'S': dx = 1; break;
+      case 'E': dy = 1; break;
+      case 'W': dy = -1; break;
+    }
+
+    int nx = playerPosition[0] + dx;
+    int ny = playerPosition[1] + dy;
+
+    // Check if the forward cell is valid
+    if (nx >= 0 && nx < field.length && ny >= 0 && ny < field[0].length && field[nx][ny] == '_') {
+      return "M";
+    }
+
+    // Default to rotation if forward move is blocked
+    return "R";
   }
 
   private String moveToTarget(int[] playerPosition, int[] target, char playerDirection, char[][] field) {
     int dx = target[0] - playerPosition[0];
     int dy = target[1] - playerPosition[1];
 
-    // Determine the optimal direction to align with the target
-    switch (playerDirection) {
-      case 'N':
-        if (dx < 0) return "M"; // Move North
-        if (dy > 0) return "R"; // Turn Right to face East
-        if (dy < 0) return "L"; // Turn Left to face West
-        break;
-      case 'S':
-        if (dx > 0) return "M"; // Move South
-        if (dy > 0) return "L"; // Turn Left to face East
-        if (dy < 0) return "R"; // Turn Right to face West
-        break;
-      case 'E':
-        if (dy > 0) return "M"; // Move East
-        if (dx < 0) return "L"; // Turn Left to face North
-        if (dx > 0) return "R"; // Turn Right to face South
-        break;
-      case 'W':
-        if (dy < 0) return "M"; // Move West
-        if (dx < 0) return "R"; // Turn Right to face North
-        if (dx > 0) return "L"; // Turn Left to face South
-        break;
-    }
+    // Avoid obstacles
+    if (dx == 0 && dy == 0) return "X"; // Already at the target
+    if (field[target[0]][target[1]] == 'A') return "X"; // Avoid asteroid
 
-    // Default move if already aligned or nothing matches
-    return "M";
+    // Determine movement or rotation
+    switch (playerDirection) {
+      case 'N': return dx < 0 ? "M" : (dy > 0 ? "R" : "L");
+      case 'S': return dx > 0 ? "M" : (dy > 0 ? "L" : "R");
+      case 'E': return dy > 0 ? "M" : (dx > 0 ? "R" : "L");
+      case 'W': return dy < 0 ? "M" : (dx > 0 ? "L" : "R");
+    }
+    return "R"; // Default to rotation
   }
 
-  private List<int[]> findEntities(char[][] field, char entityType) {
-    List<int[]> positions = new ArrayList<>();
-    for (int i = 0; i < field.length; i++) {
-      for (int j = 0; j < field[i].length; j++) {
-        if (field[i][j] == entityType) {
-          positions.add(new int[]{i, j});
-        }
-      }
-    }
-    return positions;
+  private int distance(int[] pos1, int[] pos2) {
+    return Math.abs(pos1[0] - pos2[0]) + Math.abs(pos1[1] - pos2[1]);
   }
 
   private boolean enemyInRange(int[] playerPosition, char playerDirection, List<int[]> enemies, char[][] field) {
@@ -129,55 +153,37 @@ public class SpaceshipController {
     for (int i = 1; i <= 4; i++) {
       int nx = playerPosition[0] + i * dx;
       int ny = playerPosition[1] + i * dy;
-      if (nx < 0 || nx >= field.length || ny < 0 || ny >= field[0].length || field[nx][ny] == 'A') {
-        break; // Stop at borders or asteroids
-      }
+
+      // Stop at borders or obstacles
+      if (nx < 0 || nx >= field.length || ny < 0 || ny >= field[0].length || field[nx][ny] == 'A') break;
+
       for (int[] enemy : enemies) {
-        if (enemy[0] == nx && enemy[1] == ny) {
-          return true; // Enemy in range
-        }
+        if (enemy[0] == nx && enemy[1] == ny) return true;
       }
     }
     return false;
   }
 
-  private int[] findNearest(int[] playerPosition, List<int[]> targets) {
-    int[] nearest = null;
-    int minDistance = Integer.MAX_VALUE;
-
-    for (int[] target : targets) {
-      int distance = Math.abs(playerPosition[0] - target[0]) + Math.abs(playerPosition[1] - target[1]);
-      if (distance < minDistance) {
-        minDistance = distance;
-        nearest = target;
+  private List<int[]> findEntities(char[][] field, char entityType) {
+    List<int[]> positions = new ArrayList<>();
+    for (int i = 0; i < field.length; i++) {
+      for (int j = 0; j < field[i].length; j++) {
+        if (field[i][j] == entityType) {
+          positions.add(new int[]{i, j});
+        }
       }
     }
-    return nearest;
+    return positions;
   }
 
-  private String moveToTarget(int[] playerPosition, int[] target, char playerDirection) {
-    int dx = target[0] - playerPosition[0];
-    int dy = target[1] - playerPosition[1];
+  class Action {
+    String command;
+    int score;
 
-    switch (playerDirection) {
-      case 'N': return dx < 0 ? "M" : (dy > 0 ? "R" : "L");
-      case 'S': return dx > 0 ? "M" : (dy > 0 ? "L" : "R");
-      case 'E': return dy > 0 ? "M" : (dx > 0 ? "R" : "L");
-      case 'W': return dy < 0 ? "M" : (dx > 0 ? "L" : "R");
-      default: return "R";
+    public Action(String command, int score) {
+      this.command = command;
+      this.score = score;
     }
-  }
-
-  private String safeMove(char playerDirection, int rows, int cols, int[] playerPosition) {
-    int x = playerPosition[0];
-    int y = playerPosition[1];
-
-    if (x > 0 && playerDirection == 'N') return "M";
-    if (y > 0 && playerDirection == 'W') return "M";
-    if (x < rows - 1 && playerDirection == 'S') return "M";
-    if (y < cols - 1 && playerDirection == 'E') return "M";
-
-    return "R"; // Default rotate
   }
 }
 
