@@ -25,10 +25,10 @@ public class SpaceshipController {
     public Map<String, String> makeMove(@RequestBody GameState gameState) {
         try {
             //Shoot every second time
-            if(FIRE_ACTION_COUNTER % 2 == 0) {
-              FIRE_ACTION_COUNTER++;
-              System.out.println("Shooting! Counter value: " + FIRE_ACTION_COUNTER);
-              return Map.of("move", FIRE_ACTION);
+            if (FIRE_ACTION_COUNTER % 2 == 0) {
+                FIRE_ACTION_COUNTER++;
+                System.out.println("Shooting! Counter value: " + FIRE_ACTION_COUNTER);
+                return Map.of("move", FIRE_ACTION);
             }
 
             // Store raw field data
@@ -594,12 +594,15 @@ public class SpaceshipController {
             String dirString = cellContent.substring(1);
             System.out.println("Parsing enemy direction from: '" + dirString + "'");
             Direction dir = Direction.fromString(dirString);
-            System.out.println("Resolved enemy direction to: " + dir);
-            return dir;
+            if (dir != null) {
+                System.out.println("Resolved enemy direction to: " + dir);
+                return dir;
+            }
         }
 
-        System.out.println("No direction found in enemy cell, defaulting to NORTH");
-        return Direction.NORTH;
+        Direction defaultDir = getDefaultDirection(pos);
+        System.out.println("Using default direction towards center: " + defaultDir);
+        return defaultDir;
     }
 
     private static class Position {
@@ -658,42 +661,28 @@ public class SpaceshipController {
             System.out.println("Parsing direction from string: '" + s + "'");
 
             if (s == null || s.isEmpty()) {
-                System.out.println("Empty direction string, defaulting to NORTH");
-                return NORTH;
+                System.out.println("Empty direction string");
+                return null;  // Return null to handle with getDefaultDirection
             }
 
-            // Clean the string: remove E prefix, underscores, and whitespace
-            String cleaned = s.toUpperCase()
-                    .replace("E", "")
-                    .replace("_", "")
-                    .trim();
-
-            System.out.println("Cleaned direction string: '" + cleaned + "'");
-
-            if (cleaned.isEmpty()) {
-                System.out.println("Cleaned string is empty, defaulting to NORTH");
-                return NORTH;
-            }
-
-            // First try exact character match
-            char firstChar = cleaned.charAt(0);
+            // First try to match the full name
+            String upperInput = s.toUpperCase();
             for (Direction d : values()) {
-                if (d.symbol == firstChar) {
-                    System.out.println("Found direction by symbol: " + d);
+                if (upperInput.contains(d.name())) {
+                    System.out.println("Found direction by name contained: " + d);
                     return d;
                 }
             }
 
-            // Then try name match
+            // If no full name match, look for the direction symbol
             for (Direction d : values()) {
-                if (d.name().equals(cleaned)) {
-                    System.out.println("Found direction by name: " + d);
+                if (upperInput.contains(String.valueOf(d.symbol))) {
+                    System.out.println("Found direction by symbol contained: " + d);
                     return d;
                 }
             }
 
-            System.out.println("No direction match found, defaulting to NORTH");
-            return NORTH;
+            return null;  // Return null to handle with getDefaultDirection
         }
 
         Direction turnLeft() {
@@ -780,6 +769,28 @@ public class SpaceshipController {
         throw new IllegalStateException("Player not found on field");
     }
 
+    private Direction getDefaultDirection(Position pos) {
+        int centerRow = FIELD_SIZE / 2;
+        int centerCol = FIELD_SIZE / 2;
+
+        // Calculate distances to center
+        int verticalDist = centerRow - pos.row;
+        int horizontalDist = centerCol - pos.col;
+
+        System.out.println("Calculating default direction from position " + pos +
+                " (vertical distance to center: " + verticalDist +
+                ", horizontal distance: " + horizontalDist + ")");
+
+        // Choose the direction that gets us closer to center
+        if (Math.abs(verticalDist) > Math.abs(horizontalDist)) {
+            // Vertical distance is greater
+            return verticalDist > 0 ? Direction.SOUTH : Direction.NORTH;
+        } else {
+            // Horizontal distance is greater or equal
+            return horizontalDist > 0 ? Direction.EAST : Direction.WEST;
+        }
+    }
+
 
     private Direction getPlayerDirection(Position pos) {
         String cellContent = rawField.get(pos.row).get(pos.col);
@@ -789,12 +800,15 @@ public class SpaceshipController {
             String dirString = cellContent.substring(1);
             System.out.println("Parsing player direction from: '" + dirString + "'");
             Direction dir = Direction.fromString(dirString);
-            System.out.println("Resolved player direction to: " + dir);
-            return dir;
+            if (dir != null) {
+                System.out.println("Resolved player direction to: " + dir);
+                return dir;
+            }
         }
 
-        System.out.println("No direction found in player cell, defaulting to NORTH");
-        return Direction.NORTH;
+        Direction defaultDir = getDefaultDirection(pos);
+        System.out.println("Using default direction towards center: " + defaultDir);
+        return defaultDir;
     }
 
     public static class GameState {
