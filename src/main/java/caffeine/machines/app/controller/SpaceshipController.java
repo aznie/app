@@ -868,7 +868,7 @@ public class SpaceshipController {
     private Position findPlayer(List<List<String>> field) {
         for (int i = 0; i < field.size(); i++) {
             for (int j = 0; j < field.get(i).size(); j++) {
-                if (field.get(i).get(j).equals(PLAYER)) {
+                if (field.get(i).get(j).startsWith(PLAYER)) {
                     return new Position(i, j);
                 }
             }
