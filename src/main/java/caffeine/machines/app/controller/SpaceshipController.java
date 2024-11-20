@@ -108,11 +108,11 @@ public class SpaceshipController {
       }
 
       //check for avoiding shrinking field with asteroids
-      String moveFromAsteroids = checkForAsteroidTrap(field, playerPos, playerDir);
-      if (moveFromAsteroids != null) {
-        System.out.println("Should move from asteroids");
-        return moveFromAsteroids;
-      }
+//      String moveFromAsteroids = checkForAsteroidTrap(field, playerPos, playerDir);
+//      if (moveFromAsteroids != null) {
+//        System.out.println("Should move from asteroids");
+//        return moveFromAsteroids;
+//      }
 
         // Look for coins with direct path
         List<Position> coins = findEntities(field, COIN);
@@ -355,37 +355,37 @@ public class SpaceshipController {
         return null;
     }
 
-    private String checkForAsteroidTrap(List<List<String>> field, Position playerPos, Direction playerDir) {
-      //check upper
-      if (field.get(playerPos.row - 1).get(playerPos.col).equals(ASTEROID)
-          && field.get(playerPos.row - 1).get(playerPos.col - 1).equals(ASTEROID)
-          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)) {
-        System.out.println("ASTEROIDS ON THE TOP");
-        return playerDir == Direction.NORTH ? "R" : "M";
-      }
-      // check right
-      if (field.get(playerPos.row).get(playerPos.col + 1).equals(ASTEROID)
-          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)
-          && field.get(playerPos.row + 1).get(playerPos.col + 1).equals(ASTEROID)) {
-        System.out.println("ASTEROIDS ON THE RIGHT");
-        return playerDir == Direction.EAST ? "R" : "M";
-      }
-      //check bottom
-      if (field.get(playerPos.row + 1).get(playerPos.col).equals(ASTEROID)
-          && field.get(playerPos.row + 1).get(playerPos.col - 1).equals(ASTEROID)
-          && field.get(playerPos.row + 1).get(playerPos.col + 1).equals(ASTEROID)) {
-        System.out.println("ASTEROIDS ON THE BOTTOM");
-        return playerDir == Direction.SOUTH ? "R" : "M";
-      }
-      //check left
-      if (field.get(playerPos.row).get(playerPos.col - 1).equals(ASTEROID)
-          && field.get(playerPos.row + 1).get(playerPos.col - 1).equals(ASTEROID)
-          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)) {
-        System.out.println("ASTEROIDS ON THE LEFT");
-        return playerDir == Direction.WEST ? "R" : "M";
-      }
-      return null;
-    }
+//    private String checkForAsteroidTrap(List<List<String>> field, Position playerPos, Direction playerDir) {
+//      //check upper
+//      if (field.get(playerPos.row - 1).get(playerPos.col).equals(ASTEROID)
+//          && field.get(playerPos.row - 1).get(playerPos.col - 1).equals(ASTEROID)
+//          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)) {
+//        System.out.println("ASTEROIDS ON THE TOP");
+//        return playerDir == Direction.NORTH ? "R" : "M";
+//      }
+//      // check right
+//      if (field.get(playerPos.row).get(playerPos.col + 1).equals(ASTEROID)
+//          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)
+//          && field.get(playerPos.row + 1).get(playerPos.col + 1).equals(ASTEROID)) {
+//        System.out.println("ASTEROIDS ON THE RIGHT");
+//        return playerDir == Direction.EAST ? "R" : "M";
+//      }
+//      //check bottom
+//      if (field.get(playerPos.row + 1).get(playerPos.col).equals(ASTEROID)
+//          && field.get(playerPos.row + 1).get(playerPos.col - 1).equals(ASTEROID)
+//          && field.get(playerPos.row + 1).get(playerPos.col + 1).equals(ASTEROID)) {
+//        System.out.println("ASTEROIDS ON THE BOTTOM");
+//        return playerDir == Direction.SOUTH ? "R" : "M";
+//      }
+//      //check left
+//      if (field.get(playerPos.row).get(playerPos.col - 1).equals(ASTEROID)
+//          && field.get(playerPos.row + 1).get(playerPos.col - 1).equals(ASTEROID)
+//          && field.get(playerPos.row - 1).get(playerPos.col + 1).equals(ASTEROID)) {
+//        System.out.println("ASTEROIDS ON THE LEFT");
+//        return playerDir == Direction.WEST ? "R" : "M";
+//      }
+//      return null;
+//    }
 
     private String calculateStrategicMove(List<List<String>>  field, Position playerPos, Direction playerDir, int narrowingIn) {
         List<MoveOption> options = new ArrayList<>();
