@@ -119,6 +119,13 @@ public class SpaceshipController {
             return emergencyMove;
         }
 
+      // Check for firing opportunities
+      String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
+      if (fireMove != null) {
+        System.out.println("Firing opportunity found");
+        return fireMove;
+      }
+
         // Look for coins with direct path
         List<Position> coins = findEntities(field, COIN);
         if (!coins.isEmpty()) {
@@ -128,13 +135,6 @@ public class SpaceshipController {
                 lastMoves.add(move);
                 return move;
             }
-        }
-
-        // Check for firing opportunities
-        String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
-        if (fireMove != null) {
-          System.out.println("Firing opportunity found");
-          return fireMove;
         }
 
 
@@ -411,17 +411,23 @@ public class SpaceshipController {
                 return FIRE_ACTION;
             }
         }
+        System.out.println("No enemies in range, doing checks, dir: " + playerDir.toString());
 
         if(playerDir == Direction.NORTH && field[playerPos.row - 1][playerPos.col] == ASTEROID) {
+          System.out.println("Case 1");
           return null;
         } else if (playerDir == Direction.SOUTH && field[playerPos.row + 1][playerPos.col] == ASTEROID) {
+          System.out.println("Case 2");
           return null;
         } else if (playerDir == Direction.WEST && field[playerPos.row][playerPos.col - 1] == ASTEROID) {
+          System.out.println("Case 3");
           return null;
         } else if (playerDir == Direction.EAST && field[playerPos.row][playerPos.col + 1] == ASTEROID) {
+          System.out.println("Case 4");
           return null;
         }
 
+        System.out.println("Check for the counter. Value: " + FIRE_ACTION_COUNTER);
         if (FIRE_ACTION_COUNTER % 2 == 0) {
           FIRE_ACTION_COUNTER++;
           return FIRE_ACTION;
