@@ -26,13 +26,6 @@ public class SpaceshipController {
     @PostMapping("/move")
     public Map<String, String> makeMove(@RequestBody GameState gameState) {
         try {
-            //Shoot every second time
-            if (FIRE_ACTION_COUNTER % 2 == 0) {
-                FIRE_ACTION_COUNTER++;
-                System.out.println("Shooting! Counter value: " + FIRE_ACTION_COUNTER);
-                return Map.of("move", FIRE_ACTION);
-            }
-
             // Store raw field data
             this.rawField = gameState.getField();
 
@@ -53,7 +46,6 @@ public class SpaceshipController {
             String move = calculateBestMove(field, playerPos, playerDir, gameState.getNarrowingIn());
 
             System.out.println("Calculated move: " + move);
-            FIRE_ACTION_COUNTER++;    //increment to shoot next time
             return Map.of("move", move);
 
         } catch (Exception e) {
@@ -137,6 +129,14 @@ public class SpaceshipController {
                 return move;
             }
         }
+
+        // Check for firing opportunities
+        String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
+        if (fireMove != null) {
+          System.out.println("Firing opportunity found");
+          return fireMove;
+        }
+
 
         // If we can't move and have been rotating, try to move in current direction
         if (lastMoves.size() >= 2 &&
@@ -408,9 +408,25 @@ public class SpaceshipController {
         if (!enemiesInRange.isEmpty()) {
             // Only fire if it's safe to do so
             if (isSafeToFire(field, playerPos, playerDir, enemiesInRange)) {
-                return "F";
+                return FIRE_ACTION;
             }
         }
+
+        if(playerDir == Direction.NORTH && field[playerPos.row - 1][playerPos.col] == ASTEROID) {
+          return null;
+        } else if (playerDir == Direction.SOUTH && field[playerPos.row + 1][playerPos.col] == ASTEROID) {
+          return null;
+        } else if (playerDir == Direction.WEST && field[playerPos.row][playerPos.col - 1] == ASTEROID) {
+          return null;
+        } else if (playerDir == Direction.EAST && field[playerPos.row][playerPos.col + 1] == ASTEROID) {
+          return null;
+        }
+
+        if (FIRE_ACTION_COUNTER % 2 == 0) {
+          FIRE_ACTION_COUNTER++;
+          return FIRE_ACTION;
+        }
+        FIRE_ACTION_COUNTER++;
         return null;
     }
 
