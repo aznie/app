@@ -17,6 +17,8 @@ public class SpaceshipController {
     private static final int NARROWING_INTERVAL = 20;
     private static final int FIELD_SIZE = 13;
 
+    private LinkedList<String> lastMoves = new LinkedList<>();
+
     private List<List<String>> rawField;
 
     private static final Map<String, Double> SCORES = Map.of("survival", 10.0, "coin", 20.0, "kill", 40.0, "narrowing", 10.0);
@@ -93,47 +95,145 @@ public class SpaceshipController {
     }
 
     private String calculateBestMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
-        try {
-            // Check for immediate threats first
-            String emergencyMove = handleEmergency(field, playerPos, playerDir, narrowingIn);
-            if (emergencyMove != null) {
-                System.out.println("Emergency move: " + emergencyMove);
-                return emergencyMove;
-            }
+        System.out.println("\nCalculating best move:");
+        System.out.println("Player position: " + playerPos);
+        System.out.println("Player direction: " + playerDir);
+        System.out.println("Narrowing in: " + narrowingIn);
 
-            // Look for nearby coins
-            List<Position> coins = findEntities(field, COIN);
-            if (!coins.isEmpty()) {
-                Position nearestCoin = findNearestCoin(field, playerPos, coins);
-                if (nearestCoin != null) {
-                    System.out.println("Found nearest coin at: " + nearestCoin);
-                    return getMovementCommand(field, playerPos, playerDir, nearestCoin);
+        // Track last few moves to detect loops
+        if (lastMoves == null) {
+            lastMoves = new LinkedList<>();
+        }
+        if (lastMoves.size() > 4) {
+            lastMoves.removeFirst();
+        }
+
+        // Check for rotation loop
+        if (lastMoves.size() >= 4) {
+            boolean isLoop = lastMoves.stream().allMatch(m -> m.equals("L") || m.equals("R"));
+            if (isLoop) {
+                System.out.println("Detected rotation loop, forcing forward movement");
+                if (canMoveForward(field, playerPos, playerDir)) {
+                    lastMoves.clear();
+                    return "M";
                 }
             }
+        }
 
-            // Check for firing opportunities
-            List<Position> enemies = findEntities(field, ENEMY);
-            if (!enemies.isEmpty()) {
-                String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
-                if (fireMove != null) {
-                    return fireMove;
+        // Check for immediate threats first
+        String emergencyMove = handleEmergency(field, playerPos, playerDir, narrowingIn);
+        if (emergencyMove != null) {
+            lastMoves.add(emergencyMove);
+            return emergencyMove;
+        }
+
+        // Look for coins with direct path
+        List<Position> coins = findEntities(field, COIN);
+        if (!coins.isEmpty()) {
+            Position nearestCoin = findAccessibleCoin(field, playerPos, playerDir, coins);
+            if (nearestCoin != null) {
+                String move = getMovementCommand(field, playerPos, playerDir, nearestCoin);
+                lastMoves.add(move);
+                return move;
+            }
+        }
+
+        // If we can't move and have been rotating, try to move in current direction
+        if (lastMoves.size() >= 2 &&
+                lastMoves.stream().allMatch(m -> m.equals("L") || m.equals("R"))) {
+            if (canMoveForward(field, playerPos, playerDir)) {
+                lastMoves.clear();
+                return "M";
+            }
+        }
+
+        // Default to strategic movement
+        String move = calculateStrategicMove(field, playerPos, playerDir, narrowingIn);
+        lastMoves.add(move);
+        return move;
+    }
+
+    private boolean canMoveForward(char[][] field, Position pos, Direction dir) {
+        Position next = pos.move(dir);
+        return isValidPosition(field, next);
+    }
+
+    private Position findAccessibleCoin(char[][] field, Position playerPos, Direction playerDir, List<Position> coins) {
+        Position best = null;
+        double bestScore = Double.MAX_VALUE;
+
+        for (Position coin : coins) {
+            // Calculate actual path considering obstacles
+            List<Position> path = findPath(field, playerPos, coin);
+            if (!path.isEmpty()) {
+                double distance = path.size();
+                double rotations = calculateRotations(playerDir, getPathDirection(playerPos, path.get(0)));
+                double score = distance + (rotations * 0.5); // Weigh rotations less than distance
+
+                if (score < bestScore) {
+                    bestScore = score;
+                    best = coin;
                 }
             }
+        }
 
-            // Move towards center if not too far
-            Position center = new Position(FIELD_SIZE / 2, FIELD_SIZE / 2);
-            if (!playerPos.equals(center) && playerPos.distanceTo(center) < FIELD_SIZE) {
-                return getMovementCommand(field, playerPos, playerDir, center);
+        return best;
+    }
+
+    private List<Position> findPath(char[][] field, Position start, Position end) {
+        Queue<Position> queue = new LinkedList<>();
+        Map<Position, Position> cameFrom = new HashMap<>();
+        queue.offer(start);
+
+        while (!queue.isEmpty()) {
+            Position current = queue.poll();
+
+            if (current.equals(end)) {
+                return reconstructPath(cameFrom, start, end);
             }
 
-            // Default to rotation if no other moves are good
-            return "R";
-        } catch (Exception e) {
-            System.err.println("Error in calculateBestMove: " + e.getMessage());
-            e.printStackTrace();
-            return "M"; // Default to moving forward on error
+            // Try all four directions
+            for (Direction dir : Direction.values()) {
+                Position next = current.move(dir);
+                if (isValidPosition(field, next) && !cameFrom.containsKey(next)) {
+                    queue.offer(next);
+                    cameFrom.put(next, current);
+                }
+            }
+        }
+
+        return new ArrayList<>();
+    }
+
+    private List<Position> reconstructPath(Map<Position, Position> cameFrom, Position start, Position end) {
+        List<Position> path = new ArrayList<>();
+        Position current = end;
+
+        while (current != null && !current.equals(start)) {
+            path.add(0, current);
+            current = cameFrom.get(current);
+        }
+
+        return path;
+    }
+
+    private Direction getPathDirection(Position from, Position to) {
+        int dx = to.row - from.row;
+        int dy = to.col - from.col;
+
+        if (Math.abs(dx) > Math.abs(dy)) {
+            return dx > 0 ? Direction.SOUTH : Direction.NORTH;
+        } else {
+            return dy > 0 ? Direction.EAST : Direction.WEST;
         }
     }
+
+    private int calculateRotations(Direction from, Direction to) {
+        if (from == to) return 0;
+        int diff = (to.ordinal() - from.ordinal() + 4) % 4;
+        return Math.min(diff, 4 - diff);
+    }
+
 
     private Position findNearestCoin(char[][] field, Position playerPos, List<Position> coins) {
         Position nearest = null;
