@@ -12,6 +12,8 @@ public class SpaceshipController {
     private static final char ASTEROID = 'A';
     private static final char EMPTY = '_';
     private static final int FIRE_RANGE = 4;
+    private static final String FIRE_ACTION = "F";
+    private static int FIRE_ACTION_COUNTER = 0;
     private static final int NARROWING_INTERVAL = 20;
     private static final int FIELD_SIZE = 13;
 
@@ -22,6 +24,13 @@ public class SpaceshipController {
     @PostMapping("/move")
     public Map<String, String> makeMove(@RequestBody GameState gameState) {
         try {
+            //Shoot every second time
+            if(FIRE_ACTION_COUNTER % 2 == 0) {
+              FIRE_ACTION_COUNTER++;
+              System.out.println("Shooting! Counter value: " + FIRE_ACTION_COUNTER);
+              return Map.of("move", FIRE_ACTION);
+            }
+
             // Store raw field data
             this.rawField = gameState.getField();
 
@@ -42,6 +51,7 @@ public class SpaceshipController {
             String move = calculateBestMove(field, playerPos, playerDir, gameState.getNarrowingIn());
 
             System.out.println("Calculated move: " + move);
+            FIRE_ACTION_COUNTER++;    //increment to shoot next time
             return Map.of("move", move);
 
         } catch (Exception e) {
