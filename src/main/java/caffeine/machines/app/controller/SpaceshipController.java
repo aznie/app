@@ -93,20 +93,99 @@ public class SpaceshipController {
     }
 
     private String calculateBestMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
+        // Debug current state
+        System.out.println("\nCalculating best move:");
+        System.out.println("Player position: " + playerPos);
+        System.out.println("Player direction: " + playerDir);
+        System.out.println("Narrowing in: " + narrowingIn);
+
         // Check for immediate threats first
         String emergencyMove = handleEmergency(field, playerPos, playerDir, narrowingIn);
         if (emergencyMove != null) {
+            System.out.println("Emergency move: " + emergencyMove);
             return emergencyMove;
         }
 
-        // Look for immediate firing opportunities
-        String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
-        if (fireMove != null) {
-            return fireMove;
+        // Look for coins
+        List<Position> coins = findEntities(field, COIN);
+        if (!coins.isEmpty()) {
+            Position nearestCoin = findNearestCoin(field, playerPos, coins);
+            if (nearestCoin != null) {
+                System.out.println("Found nearest coin at: " + nearestCoin);
+                String moveTowardsCoin = getMovementCommand(field, playerPos, playerDir, nearestCoin);
+                System.out.println("Moving towards coin: " + moveTowardsCoin);
+                return moveTowardsCoin;
+            }
         }
 
-        // Calculate best strategic move
-        return calculateStrategicMove(field, playerPos, playerDir, narrowingIn);
+        // Check for firing opportunities
+        List<Position> enemies = findEntities(field, ENEMY);
+        if (!enemies.isEmpty()) {
+            String fireMove = checkFiringOpportunity(field, playerPos, playerDir);
+            if (fireMove != null) {
+                System.out.println("Firing opportunity found");
+                return fireMove;
+            }
+        }
+
+        // If no immediate targets, move towards center
+        Position center = new Position(FIELD_SIZE / 2, FIELD_SIZE / 2);
+        if (!playerPos.equals(center)) {
+            String centerMove = getMovementCommand(field, playerPos, playerDir, center);
+            System.out.println("Moving towards center: " + centerMove);
+            return centerMove;
+        }
+
+        // If at center, rotate to scan for opportunities
+        return "R";
+    }
+
+    private Position findNearestCoin(char[][] field, Position playerPos, List<Position> coins) {
+        Position nearest = null;
+        double minDistance = Double.MAX_VALUE;
+
+        for (Position coin : coins) {
+            double distance = playerPos.distanceTo(coin);
+            if (distance < minDistance && isPathSafe(field, playerPos, coin)) {
+                minDistance = distance;
+                nearest = coin;
+            }
+        }
+
+        return nearest;
+    }
+
+    private boolean isPathSafe(char[][] field, Position from, Position to) {
+        // Check if path is blocked by asteroids or enemies
+        List<Position> path = getPath(from, to);
+        for (Position pos : path) {
+            if (!isValidPosition(field, pos)) {
+                return false;
+            }
+
+            // Check for nearby enemies
+            List<Position> enemies = findEntities(field, ENEMY);
+            for (Position enemy : enemies) {
+                if (pos.distanceTo(enemy) < 2) { // Avoid getting too close to enemies
+                    return false;
+                }
+            }
+        }
+        return true;
+    }
+
+    private List<Position> getPath(Position from, Position to) {
+        List<Position> path = new ArrayList<>();
+        int dx = Integer.compare(to.row - from.row, 0);
+        int dy = Integer.compare(to.col - from.col, 0);
+        Position current = from;
+
+        while (!current.equals(to)) {
+            current = new Position(current.row + dx, current.col + dy);
+            path.add(current);
+        }
+
+        return path;
     }
 
     private String handleEmergency(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
@@ -710,13 +789,15 @@ public class SpaceshipController {
     }
 
     private String getMovementCommand(char[][] field, Position from, Direction currentDir, Position to) {
+        System.out.println("Getting movement command from " + from + " to " + to + ", current direction: " + currentDir);
+
         Direction targetDir = getTargetDirection(from, to);
-        System.out.println("Current direction: " + currentDir + ", Target direction: " + targetDir);
+        System.out.println("Target direction: " + targetDir);
 
         // If we're facing the right direction and can move, do it
         if (currentDir == targetDir) {
             Position next = from.move(currentDir);
-            if (isValidPosition(field, next)) {  // <-- Used here
+            if (isValidPosition(field, next)) {
                 return "M";
             }
         }
