@@ -175,51 +175,64 @@ public class SpaceshipController {
         return null;
     }
 
-    private String calculateStrategicMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
-        List<MoveOption> options = new ArrayList<>();
+  private String calculateStrategicMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
+    List<MoveOption> options = new ArrayList<>();
 
-        // Evaluate coin collection
-        List<Position> coins = findEntities(field, COIN);
-        for (Position coin : coins) {
-            double score = evaluateCoinMove(field, playerPos, coin, narrowingIn);
-            String move = getMovementCommand(field, playerPos, playerDir, coin);
-            options.add(new MoveOption(move, score));
-        }
+    // Always consider basic moves with base scores
+    Position forward = playerPos.move(playerDir);
+    if (isValidPosition(field, forward)) {
+      options.add(new MoveOption("M", 1.0)); // Base score for moving
+    }
+    options.add(new MoveOption("L", 0.5)); // Base score for rotating
+    options.add(new MoveOption("R", 0.5)); // Base score for rotating
 
-        // Evaluate strategic positioning
-        List<Position> enemies = findEntities(field, ENEMY);
-        for (Position enemy : enemies) {
-            double score = evaluatePositioning(field, playerPos, enemy, narrowingIn);
-            String move = getOptimalPositioningMove(field, playerPos, playerDir, enemy);
-            options.add(new MoveOption(move, score));
-        }
-
-        // Return highest scored move or safe default
-        return options.stream()
-                .max(Comparator.comparingDouble(opt -> opt.score))
-                .map(opt -> opt.move)
-                .orElse(calculateSafeMove(field, playerPos, playerDir));
+    // Evaluate coin collection with higher priority
+    List<Position> coins = findEntities(field, COIN);
+    for (Position coin : coins) {
+      double score = evaluateCoinMove(field, playerPos, coin, narrowingIn);
+      String move = getMovementCommand(field, playerPos, playerDir, coin);
+      options.add(new MoveOption(move, score * 2.0)); // Increased priority for coins
     }
 
-    private double evaluateCoinMove(char[][] field, Position playerPos, Position coin, int narrowingIn) {
-        double baseScore = SCORES.get("coin");
-        double distance = playerPos.distanceTo(coin);
-
-        // Reduce score based on distance
-        double score = baseScore / (distance + 1);
-
-        // Reduce score if coin is in narrowing zone
-        if (isInNarrowingDanger(coin, narrowingIn)) {
-            score *= 0.5;
-        }
-
-        // Reduce score if path to coin is dangerous
-        if (isPathDangerous(field, playerPos, coin)) {
-            score *= 0.3;
-        }
-
-        return score;
+    // Evaluate strategic positioning
+    List<Position> enemies = findEntities(field, ENEMY);
+    for (Position enemy : enemies) {
+      double score = evaluatePositioning(field, playerPos, enemy, narrowingIn);
+      String move = getOptimalPositioningMove(field, playerPos, playerDir, enemy);
+      options.add(new MoveOption(move, score));
     }
+
+    // Debug logging
+    System.out.println("Available moves:");
+    for (MoveOption option : options) {
+      System.out.println(option.move + ": " + option.score);
+    }
+
+    return options.stream()
+            .max(Comparator.comparingDouble(opt -> opt.score))
+            .map(opt -> opt.move)
+            .orElse("M");
+  }
+
+
+  private double evaluateCoinMove(char[][] field, Position playerPos, Position coin, int narrowingIn) {
+    double score = SCORES.get("coin");
+    double distance = playerPos.distanceTo(coin);
+
+    // Increased base score and reduced distance penalty
+    score = score / Math.sqrt(distance + 1);  // Using sqrt for less aggressive distance penalty
+
+    // Less aggressive penalties
+    if (isInNarrowingDanger(coin, narrowingIn)) {
+      score *= 0.8; // Was 0.5
+    }
+
+    if (isPathDangerous(field, playerPos, coin)) {
+      score *= 0.5; // Was 0.3
+    }
+
+    return score;
+  }
 
     private boolean isPathDangerous(char[][] field, Position from, Position to) {
         List<Position> enemies = findEntities(field, ENEMY);
@@ -352,11 +365,16 @@ public class SpaceshipController {
         return bestPosition;
     }
 
-    private boolean isValidPosition(char[][] field, Position pos) {
-        return pos.row >= 0 && pos.row < field.length &&
-                pos.col >= 0 && pos.col < field[0].length &&
-                field[pos.row][pos.col] != ASTEROID;
+  private boolean isValidPosition(char[][] field, Position pos) {
+    boolean valid = pos.row >= 0 && pos.row < field.length &&
+            pos.col >= 0 && pos.col < field[0].length &&
+            field[pos.row][pos.col] != ASTEROID;
+
+    if (!valid) {
+      System.out.println("Invalid position: " + pos.row + "," + pos.col);
     }
+    return valid;
+  }
 
     private boolean hasNearbyAsteroid(char[][] field, Position pos) {
         // Check all adjacent cells including diagonals
@@ -616,32 +634,41 @@ public class SpaceshipController {
         }
     }
 
-    private String getMovementCommand(char[][] field, Position from, Direction currentDir, Position to) {
-        Direction targetDir = getTargetDirection(from, to);
+  private String getMovementCommand(char[][] field, Position from, Direction currentDir, Position to) {
+    Direction targetDir = getTargetDirection(from, to);
 
-        // If we're already facing the right direction, try to move forward
-        if (currentDir == targetDir) {
-            Position next = from.move(currentDir);
-            if (isValidPosition(field, next)) {
-                return "M";
-            }
-        }
-
-        // Otherwise, turn toward the target using the shortest rotation
-        // Determine if right turn or left turn is shorter to reach target direction
-        return currentDir.turnRight() == targetDir ? "R" : "L";
+    // If we're facing the right direction and can move, do it
+    if (currentDir == targetDir) {
+      Position next = from.move(currentDir);
+      if (isValidPosition(field, next)) {
+        return "M";
+      }
     }
 
-    private Direction getTargetDirection(Position from, Position to) {
-        int dx = to.row - from.row;
-        int dy = to.col - from.col;
+    // Determine shortest rotation
+    int currentOrd = currentDir.ordinal();
+    int targetOrd = targetDir.ordinal();
+    int diff = (targetOrd - currentOrd + 4) % 4;
+    return (diff <= 2) ? "R" : "L";
+  }
 
-        if (Math.abs(dx) > Math.abs(dy)) {
-            return dx > 0 ? Direction.SOUTH : Direction.NORTH;
-        } else {
-            return dy > 0 ? Direction.EAST : Direction.WEST;
-        }
+  private Direction getTargetDirection(Position from, Position to) {
+    int dx = to.row - from.row;
+    int dy = to.col - from.col;
+
+    // Use primary direction (larger delta)
+    if (Math.abs(dx) > Math.abs(dy)) {
+      return dx > 0 ? Direction.SOUTH : Direction.NORTH;
+    } else if (Math.abs(dy) > Math.abs(dx)) {
+      return dy > 0 ? Direction.EAST : Direction.WEST;
+    } else {
+      // If deltas are equal, prefer current direction if it works
+      if (dx > 0) return Direction.SOUTH;
+      if (dx < 0) return Direction.NORTH;
+      if (dy > 0) return Direction.EAST;
+      return Direction.WEST;
     }
+  }
 
     private List<Position> findEntities(char[][] field, char entityType) {
         List<Position> positions = new ArrayList<>();
@@ -670,54 +697,45 @@ public class SpaceshipController {
         return field[pos.row][pos.col + 1];
     }
 
-    public class GameState {
-        private List<List<String>> field;
-        private int narrowingIn;
-        private int gameId;
+  public static class GameState {
+    private List<List<String>> field;
+    private int narrowingIn;
+    private int gameId;
 
-        // Constructor
-        public GameState(List<List<String>> field, int narrowingIn, int gameId) {
-            this.field = field;
-            this.narrowingIn = narrowingIn;
-            this.gameId = gameId;
-        }
-
-        // Default constructor for JSON deserialization
-        public GameState() {
-        }
-
-        // Getters and setters
-        public List<List<String>> getField() {
-            return field;
-        }
-
-        public void setField(List<List<String>> field) {
-            this.field = field;
-        }
-
-        public int getNarrowingIn() {
-            return narrowingIn;
-        }
-
-        public void setNarrowingIn(int narrowingIn) {
-            this.narrowingIn = narrowingIn;
-        }
-
-        public int getGameId() {
-            return gameId;
-        }
-
-        public void setGameId(int gameId) {
-            this.gameId = gameId;
-        }
-
-        @Override
-        public String toString() {
-            return "GameState{" +
-                    "field=" + field +
-                    ", narrowingIn=" + narrowingIn +
-                    ", gameId=" + gameId +
-                    '}';
-        }
+    // Default constructor needed for JSON deserialization
+    public GameState() {
     }
+
+    // Full constructor
+    public GameState(List<List<String>> field, int narrowingIn, int gameId) {
+      this.field = field;
+      this.narrowingIn = narrowingIn;
+      this.gameId = gameId;
+    }
+
+    // Getters and setters
+    public List<List<String>> getField() {
+      return field;
+    }
+
+    public void setField(List<List<String>> field) {
+      this.field = field;
+    }
+
+    public int getNarrowingIn() {
+      return narrowingIn;
+    }
+
+    public void setNarrowingIn(int narrowingIn) {
+      this.narrowingIn = narrowingIn;
+    }
+
+    public int getGameId() {
+      return gameId;
+    }
+
+    public void setGameId(int gameId) {
+      this.gameId = gameId;
+    }
+  }
 }
