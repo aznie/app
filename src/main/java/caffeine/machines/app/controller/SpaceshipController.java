@@ -120,13 +120,13 @@ public class SpaceshipController {
 
 
         // If we can't move and have been rotating, try to move in current direction
-        if (lastMoves.size() >= 2 &&
-                lastMoves.stream().allMatch(m -> m.equals("L") || m.equals("R"))) {
-            if (canMoveForward(field, playerPos, playerDir)) {
-                lastMoves.clear();
-                return "M";
-            }
-        }
+//        if (lastMoves.size() >= 2 &&
+//                lastMoves.stream().allMatch(m -> m.equals("L") || m.equals("R"))) {
+//            if (canMoveForward(field, playerPos, playerDir)) {
+//                lastMoves.clear();
+//                return "M";
+//            }
+//        }
 
         // Default to strategic movement
         String move = calculateStrategicMove(field, playerPos, playerDir, narrowingIn);
