@@ -15,26 +15,30 @@ public class SpaceshipController {
     private static final int NARROWING_INTERVAL = 20;
     private static final int FIELD_SIZE = 13;
 
+    private List<List<String>> rawField;
+
     private static final Map<String, Double> SCORES = Map.of("survival", 10.0, "coin", 20.0, "kill", 40.0, "narrowing", 10.0);
 
     @PostMapping("/move")
     public Map<String, String> makeMove(@RequestBody GameState gameState) {
         try {
+            // Store raw field data
+            this.rawField = gameState.getField();
+
             // Log the incoming request
             System.out.println("Received game state:");
             System.out.println("Game ID: " + gameState.getGameId());
             System.out.println("Narrowing In: " + gameState.getNarrowingIn());
             System.out.println("Field state:");
-            printField(gameState.getField());
+            printField(rawField);
 
-            char[][] field = parseField(gameState.getField());
+            char[][] field = parseField(rawField);
             Position playerPos = findPlayer(field);
             System.out.println("Found player at: row=" + playerPos.row + ", col=" + playerPos.col);
 
-            char direction = getPlayerDirection(field, playerPos);
-            System.out.println("Player direction: " + direction);
+            Direction playerDir = getPlayerDirection(playerPos);
+            System.out.println("Player direction: " + playerDir);
 
-            Direction playerDir = Direction.fromChar(direction);
             String move = calculateBestMove(field, playerPos, playerDir, gameState.getNarrowingIn());
 
             System.out.println("Calculated move: " + move);
@@ -51,7 +55,7 @@ public class SpaceshipController {
         for (List<String> row : field) {
             StringBuilder rowStr = new StringBuilder();
             for (String cell : row) {
-                rowStr.append(cell.isEmpty() ? "_" : cell).append(" ");
+                rowStr.append(String.format("%-6s", cell.isEmpty() ? "_" : cell));
             }
             System.out.println(rowStr.toString());
         }
@@ -62,6 +66,7 @@ public class SpaceshipController {
         for (int i = 0; i < FIELD_SIZE; i++) {
             for (int j = 0; j < FIELD_SIZE; j++) {
                 String cell = fieldList.get(i).get(j);
+                // Just store the first character for now
                 field[i][j] = cell.isEmpty() ? EMPTY : cell.charAt(0);
             }
         }
@@ -553,14 +558,12 @@ public class SpaceshipController {
     }
 
     private Direction getEnemyDirection(char[][] field, Position pos) {
-        // Look at surrounding cells to determine enemy direction
-        if (pos.col + 1 < FIELD_SIZE) {
-            char nextChar = field[pos.row][pos.col + 1];
-            if (nextChar == 'N' || nextChar == 'S' || nextChar == 'E' || nextChar == 'W') {
-                return Direction.fromChar(nextChar);
-            }
+        String cellContent = rawField.get(pos.row).get(pos.col);
+        if (cellContent.length() > 1) {
+            String dirString = cellContent.substring(1);
+            return Direction.fromString(dirString);
         }
-        return Direction.NORTH; // Default if can't determine
+        return Direction.NORTH; // Default if no direction found
     }
 
     private static class Position {
@@ -595,25 +598,48 @@ public class SpaceshipController {
 
         @Override
         public String toString() {
-            return "Position{row=" + row + ", col=" + col + "}";
+            return String.format("Position{row=%d, col=%d}", row, col);
         }
     }
 
     private enum Direction {
-        NORTH('N', -1, 0), SOUTH('S', 1, 0), EAST('E', 0, 1), WEST('W', 0, -1);
+        NORTH('N', -1, 0, "NORTH"),
+        SOUTH('S', 1, 0, "SOUTH"),
+        EAST('E', 0, 1, "EAST"),
+        WEST('W', 0, -1, "WEST");
 
         final int dx;
         final int dy;
         final char symbol;
+        final String fullName;
 
-        Direction(char symbol, int dx, int dy) {
+        Direction(char symbol, int dx, int dy, String fullName) {
             this.symbol = symbol;
             this.dx = dx;
             this.dy = dy;
+            this.fullName = fullName;
         }
 
         static Direction fromChar(char c) {
-            return Arrays.stream(values()).filter(d -> d.symbol == c).findFirst().orElseThrow(() -> new IllegalStateException("Invalid direction: " + c));
+            return Arrays.stream(values())
+                    .filter(d -> d.symbol == c)
+                    .findFirst()
+                    .orElseThrow(() -> new IllegalStateException(
+                            String.format("Invalid direction char: '%c' (ASCII: %d)", c, (int) c)));
+        }
+
+        static Direction fromString(String s) {
+            // First try matching the full name
+            for (Direction d : values()) {
+                if (d.fullName.equals(s)) {
+                    return d;
+                }
+            }
+            // If that fails, try matching the first character
+            if (!s.isEmpty()) {
+                return fromChar(s.charAt(0));
+            }
+            throw new IllegalStateException("Invalid direction string: " + s);
         }
 
         Direction turnLeft() {
@@ -622,6 +648,11 @@ public class SpaceshipController {
 
         Direction turnRight() {
             return values()[(ordinal() + 1) % 4];
+        }
+
+        @Override
+        public String toString() {
+            return fullName;
         }
     }
 
@@ -695,33 +726,16 @@ public class SpaceshipController {
     }
 
 
-    private char getPlayerDirection(char[][] field, Position pos) {
-        // Add logging
-        System.out.println("Searching for direction at position: " + pos.row + "," + pos.col);
+    private Direction getPlayerDirection(Position pos) {
+        String cellContent = rawField.get(pos.row).get(pos.col);
+        System.out.println("Player cell content: " + cellContent);
 
-        // Search next few cells to the right for direction
-        for (int i = 1; i < field[0].length - pos.col; i++) {
-            char nextChar = field[pos.row][pos.col + i];
-            System.out.println("Checking character at offset " + i + ": " + nextChar);
-            if (nextChar == 'N' || nextChar == 'S' || nextChar == 'E' || nextChar == 'W') {
-                return nextChar;
-            }
+        if (cellContent.length() > 1) {
+            // Get the direction part (everything after the first character)
+            String dirString = cellContent.substring(1);
+            return Direction.fromString(dirString);
         }
-
-        // If no direction found, log the surrounding cells
-        System.out.println("No direction found. Surrounding cells:");
-        for (int dr = -1; dr <= 1; dr++) {
-            for (int dc = -1; dc <= 1; dc++) {
-                int r = pos.row + dr;
-                int c = pos.col + dc;
-                if (r >= 0 && r < field.length && c >= 0 && c < field[0].length) {
-                    System.out.printf("(%d,%d): %c ", r, c, field[r][c]);
-                }
-            }
-            System.out.println();
-        }
-
-        throw new IllegalStateException("No direction found for player");
+        throw new IllegalStateException("No direction found in player cell: " + cellContent);
     }
 
     public static class GameState {
