@@ -46,13 +46,16 @@ public class SpaceshipController {
   private String calculateBestMove(char[][] field, int[] playerPosition, char playerDirection, int narrowingIn) {
     int rows = field.length;
     int cols = field[0].length;
+
+    // Get all coins on the field
     List<int[]> coins = findEntities(field, 'C');
     List<int[]> enemies = findEntities(field, 'E');
 
-    // Avoid narrowing area
+    // If in danger of narrowing, move to the center
     if (playerPosition[0] < narrowingIn || playerPosition[0] >= rows - narrowingIn ||
         playerPosition[1] < narrowingIn || playerPosition[1] >= cols - narrowingIn) {
-      return safeMove(playerDirection, rows, cols, playerPosition);
+      int[] safeZone = {rows / 2, cols / 2};
+      return moveToTarget(playerPosition, safeZone, playerDirection, field);
     }
 
     // Attack if an enemy is in range
@@ -63,11 +66,43 @@ public class SpaceshipController {
     // Move toward the nearest coin
     if (!coins.isEmpty()) {
       int[] nearestCoin = findNearest(playerPosition, coins);
-      return moveToTarget(playerPosition, nearestCoin, playerDirection);
+      return moveToTarget(playerPosition, nearestCoin, playerDirection, field);
     }
 
-    // Default: Rotate right if nothing else is optimal
-    return "R";
+    // Default move forward if no specific target
+    return "M";
+  }
+
+  private String moveToTarget(int[] playerPosition, int[] target, char playerDirection, char[][] field) {
+    int dx = target[0] - playerPosition[0];
+    int dy = target[1] - playerPosition[1];
+
+    // Determine the optimal direction to align with the target
+    switch (playerDirection) {
+      case 'N':
+        if (dx < 0) return "M"; // Move North
+        if (dy > 0) return "R"; // Turn Right to face East
+        if (dy < 0) return "L"; // Turn Left to face West
+        break;
+      case 'S':
+        if (dx > 0) return "M"; // Move South
+        if (dy > 0) return "L"; // Turn Left to face East
+        if (dy < 0) return "R"; // Turn Right to face West
+        break;
+      case 'E':
+        if (dy > 0) return "M"; // Move East
+        if (dx < 0) return "L"; // Turn Left to face North
+        if (dx > 0) return "R"; // Turn Right to face South
+        break;
+      case 'W':
+        if (dy < 0) return "M"; // Move West
+        if (dx < 0) return "R"; // Turn Right to face North
+        if (dx > 0) return "L"; // Turn Left to face South
+        break;
+    }
+
+    // Default move if already aligned or nothing matches
+    return "M";
   }
 
   private List<int[]> findEntities(char[][] field, char entityType) {
