@@ -6,15 +6,14 @@ import java.util.*;
 
 @RestController
 public class SpaceshipController {
-    private static final char PLAYER = 'P';
-    private static final char ENEMY = 'E';
-    private static final char COIN = 'C';
-    private static final char ASTEROID = 'A';
-    private static final char EMPTY = '_';
+    private static final String PLAYER = "P";
+    private static final String ENEMY = "E";
+    private static final String COIN = "C";
+    private static final String ASTEROID = "A";
+    private static final String EMPTY = "_";
     private static final int FIRE_RANGE = 4;
     private static final String FIRE_ACTION = "F";
     private static int FIRE_ACTION_COUNTER = 1;
-    private static final int NARROWING_INTERVAL = 20;
     private static final int FIELD_SIZE = 13;
 
     private LinkedList<String> lastMoves = new LinkedList<>();
@@ -36,14 +35,13 @@ public class SpaceshipController {
             System.out.println("Field state:");
             printField(rawField);
 
-            char[][] field = parseField(rawField);
-            Position playerPos = findPlayer(field);
+            Position playerPos = findPlayer(rawField);
             System.out.println("Found player at: row=" + playerPos.row + ", col=" + playerPos.col);
 
             Direction playerDir = getPlayerDirection(playerPos);
             System.out.println("Player direction: " + playerDir);
 
-            String move = calculateBestMove(field, playerPos, playerDir, gameState.getNarrowingIn());
+            String move = calculateBestMove(rawField, playerPos, playerDir, gameState.getNarrowingIn());
 
             System.out.println("Calculated move: " + move);
             return Map.of("move", move);
@@ -69,24 +67,7 @@ public class SpaceshipController {
         }
     }
 
-    private char[][] parseField(List<List<String>> fieldList) {
-        char[][] field = new char[FIELD_SIZE][FIELD_SIZE];
-        for (int i = 0; i < FIELD_SIZE; i++) {
-            for (int j = 0; j < FIELD_SIZE; j++) {
-                String cell = fieldList.get(i).get(j);
-                if (cell.isEmpty()) {
-                    field[i][j] = EMPTY;
-                } else if (cell.equals("*")) {
-                    field[i][j] = ASTEROID; // Treat asterisk as asteroid
-                } else {
-                    field[i][j] = cell.charAt(0);
-                }
-            }
-        }
-        return field;
-    }
-
-    private String calculateBestMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
+    private String calculateBestMove(List<List<String>> field, Position playerPos, Direction playerDir, int narrowingIn) {
         System.out.println("\nCalculating best move:");
         System.out.println("Player position: " + playerPos);
         System.out.println("Player direction: " + playerDir);
@@ -153,12 +134,12 @@ public class SpaceshipController {
         return move;
     }
 
-    private boolean canMoveForward(char[][] field, Position pos, Direction dir) {
+    private boolean canMoveForward(List<List<String>> field, Position pos, Direction dir) {
         Position next = pos.move(dir);
         return isValidPosition(field, next);
     }
 
-    private Position findAccessibleCoin(char[][] field, Position playerPos, Direction playerDir, List<Position> coins) {
+    private Position findAccessibleCoin(List<List<String>>  field, Position playerPos, Direction playerDir, List<Position> coins) {
         Position best = null;
         double bestScore = Double.MAX_VALUE;
 
@@ -180,7 +161,7 @@ public class SpaceshipController {
         return best;
     }
 
-    private List<Position> findPath(char[][] field, Position start, Position end) {
+    private List<Position> findPath(List<List<String>>  field, Position start, Position end) {
         Queue<Position> queue = new LinkedList<>();
         Map<Position, Position> cameFrom = new HashMap<>();
         queue.offer(start);
@@ -234,76 +215,7 @@ public class SpaceshipController {
         return Math.min(diff, 4 - diff);
     }
 
-
-    private Position findNearestCoin(char[][] field, Position playerPos, List<Position> coins) {
-        Position nearest = null;
-        double minDistance = Double.MAX_VALUE;
-
-        for (Position coin : coins) {
-            double distance = playerPos.distanceTo(coin);
-            // Only check paths for reasonably close coins
-            if (distance < FIELD_SIZE && distance < minDistance) {
-                if (isPathSafe(field, playerPos, coin)) {
-                    minDistance = distance;
-                    nearest = coin;
-                }
-            }
-        }
-
-        return nearest;
-    }
-
-
-    private boolean isPathSafe(char[][] field, Position from, Position to) {
-        // Quick distance check first
-        if (from.distanceTo(to) > FIELD_SIZE * 2) {
-            return false;
-        }
-
-        // Check key points along the path
-        List<Position> path = getPath(from, to);
-        for (Position pos : path) {
-            // Check if position is valid
-            if (!isValidPosition(field, pos)) {
-                return false;
-            }
-
-            // Check for nearby enemies
-            List<Position> enemies = findEntities(field, ENEMY);
-            for (Position enemy : enemies) {
-                if (pos.distanceTo(enemy) < 2) {
-                    return false;
-                }
-            }
-        }
-        return true;
-    }
-
-    private List<Position> getPath(Position from, Position to) {
-        List<Position> path = new ArrayList<>();
-        int maxSteps = Math.max(Math.abs(to.row - from.row), Math.abs(to.col - from.col));
-
-        // Limit maximum path length to prevent memory issues
-        if (maxSteps > FIELD_SIZE * 2) {
-            System.out.println("Path too long, limiting steps");
-            return path;
-        }
-
-        // Calculate step sizes
-        double stepRow = (to.row - from.row) / (double) maxSteps;
-        double stepCol = (to.col - from.col) / (double) maxSteps;
-
-        // Generate path points
-        for (int i = 1; i <= maxSteps; i++) {
-            int row = from.row + (int) Math.round(stepRow * i);
-            int col = from.col + (int) Math.round(stepCol * i);
-            path.add(new Position(row, col));
-        }
-
-        return path;
-    }
-
-    private String handleEmergency(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
+    private String handleEmergency(List<List<String>> field, Position playerPos, Direction playerDir, int narrowingIn) {
         // Check if we're in immediate danger from narrowing
         if (isInNarrowingDanger(playerPos, narrowingIn)) {
             Position safePos = findSafePosition(field, narrowingIn);
@@ -325,7 +237,7 @@ public class SpaceshipController {
         return null;
     }
 
-    private String calculateDodgeMove(char[][] field, Position playerPos, Direction playerDir) {
+    private String calculateDodgeMove(List<List<String>>  field, Position playerPos, Direction playerDir) {
         List<MoveOption> options = new ArrayList<>();
 
         // Evaluate all possible moves
@@ -356,7 +268,7 @@ public class SpaceshipController {
         return options.stream().max(Comparator.comparingDouble(opt -> opt.score)).map(opt -> opt.move).orElse("M"); // Default to moving forward if no good options
     }
 
-    private double evaluateDodgePosition(char[][] field, Position pos) {
+    private double evaluateDodgePosition(List<List<String>>  field, Position pos) {
         double safety = 1.0;
         List<Position> enemies = findEntities(field, ENEMY);
 
@@ -390,7 +302,7 @@ public class SpaceshipController {
     }
 
 
-    private boolean isInEnemyFireLine(char[][] field, Position playerPos) {
+    private boolean isInEnemyFireLine(List<List<String>>  field, Position playerPos) {
         List<Position> enemies = findEntities(field, ENEMY);
 
         // Check if any enemy can hit us
@@ -403,7 +315,7 @@ public class SpaceshipController {
         return false;
     }
 
-    private String checkFiringOpportunity(char[][] field, Position playerPos, Direction playerDir) {
+    private String checkFiringOpportunity(List<List<String>>  field, Position playerPos, Direction playerDir) {
         List<Position> enemiesInRange = findEnemiesInRange(field, playerPos, playerDir);
         if (!enemiesInRange.isEmpty()) {
             // Only fire if it's safe to do so
@@ -413,16 +325,16 @@ public class SpaceshipController {
         }
         System.out.println("No enemies in range, doing checks, dir: " + playerDir.toString());
 
-        if(playerDir == Direction.NORTH && field[playerPos.row - 1][playerPos.col] == ASTEROID) {
+        if(playerDir == Direction.NORTH && field.get(playerPos.row - 1).get(playerPos.col).equals(ASTEROID)) {
           System.out.println("Case 1");
           return null;
-        } else if (playerDir == Direction.SOUTH && field[playerPos.row + 1][playerPos.col] == ASTEROID) {
+        } else if (playerDir == Direction.SOUTH && field.get(playerPos.row + 1).get(playerPos.col).equals(ASTEROID)) {
           System.out.println("Case 2");
           return null;
-        } else if (playerDir == Direction.WEST && field[playerPos.row][playerPos.col - 1] == ASTEROID) {
+        } else if (playerDir == Direction.WEST && field.get(playerPos.row).get(playerPos.col - 1).equals(ASTEROID)) {
           System.out.println("Case 3");
           return null;
-        } else if (playerDir == Direction.EAST && field[playerPos.row][playerPos.col + 1] == ASTEROID) {
+        } else if (playerDir == Direction.EAST && field.get(playerPos.row).get(playerPos.col + 1).equals(ASTEROID)) {
           System.out.println("Case 4");
           return null;
         }
@@ -436,7 +348,7 @@ public class SpaceshipController {
         return null;
     }
 
-    private String calculateStrategicMove(char[][] field, Position playerPos, Direction playerDir, int narrowingIn) {
+    private String calculateStrategicMove(List<List<String>>  field, Position playerPos, Direction playerDir, int narrowingIn) {
         List<MoveOption> options = new ArrayList<>();
 
         // Always consider basic moves with base scores
@@ -473,7 +385,7 @@ public class SpaceshipController {
     }
 
 
-    private double evaluateCoinMove(char[][] field, Position playerPos, Position coin, int narrowingIn) {
+    private double evaluateCoinMove(List<List<String>>  field, Position playerPos, Position coin, int narrowingIn) {
         double score = SCORES.get("coin");
         double distance = playerPos.distanceTo(coin);
 
@@ -492,7 +404,7 @@ public class SpaceshipController {
         return score;
     }
 
-    private boolean isPathDangerous(char[][] field, Position from, Position to) {
+    private boolean isPathDangerous(List<List<String>> field, Position from, Position to) {
         List<Position> enemies = findEntities(field, ENEMY);
 
         // Check if path crosses any enemy firing lines
@@ -506,7 +418,7 @@ public class SpaceshipController {
         return false;
     }
 
-    private boolean pathCrossesFireLine(char[][] field, Position from, Position to, Position enemy, Direction enemyDir) {
+    private boolean pathCrossesFireLine(List<List<String>>  field, Position from, Position to, Position enemy, Direction enemyDir) {
         int steps = (int) from.distanceTo(to);
         Position current = from;
 
@@ -520,7 +432,7 @@ public class SpaceshipController {
         return false;
     }
 
-    private boolean isInFiringRange(Position from, Position target, Direction direction, char[][] field) {
+    private boolean isInFiringRange(Position from, Position target, Direction direction, List<List<String>> field) {
         System.out.println("Checking firing range from " + from + " to " + target + " in direction " + direction);
         Position current = from;
 
@@ -538,7 +450,7 @@ public class SpaceshipController {
                 return true;
             }
 
-            if (field[current.row][current.col] == ASTEROID) {
+            if (field.get(current.row).get(current.col).equals(ASTEROID)) {
                 System.out.println("Blocked by asteroid");
                 return false;
             }
@@ -553,7 +465,7 @@ public class SpaceshipController {
         return new Position(from.row + dx, from.col + dy);
     }
 
-    private double evaluatePositioning(char[][] field, Position playerPos, Position enemy, int narrowingIn) {
+    private double evaluatePositioning(List<List<String>> field, Position playerPos, Position enemy, int narrowingIn) {
         double score = SCORES.get("kill");
 
         // Calculate ideal attack distance (just within firing range)
@@ -576,7 +488,7 @@ public class SpaceshipController {
         return score;
     }
 
-    private String getOptimalPositioningMove(char[][] field, Position playerPos, Direction playerDir, Position enemy) {
+    private String getOptimalPositioningMove(List<List<String>>  field, Position playerPos, Direction playerDir, Position enemy) {
         // Find best position for attack
         Position idealPos = calculateIdealAttackPosition(field, playerPos, enemy);
         if (idealPos != null) {
@@ -587,7 +499,7 @@ public class SpaceshipController {
         return getMovementCommand(field, playerPos, playerDir, enemy);
     }
 
-    private Position calculateIdealAttackPosition(char[][] field, Position playerPos, Position enemy) {
+    private Position calculateIdealAttackPosition(List<List<String>>  field, Position playerPos, Position enemy) {
         // Try to find a position that's:
         // 1. Within firing range
         // 2. Has cover nearby
@@ -620,17 +532,17 @@ public class SpaceshipController {
         return bestPosition;
     }
 
-    private boolean isValidPosition(char[][] field, Position pos) {
+    private boolean isValidPosition(List<List<String>> field, Position pos) {
         // First check boundaries
-        if (pos.row < 0 || pos.row >= field.length ||
-                pos.col < 0 || pos.col >= field[0].length) {
+        if (pos.row < 0 || pos.row >= field.size() ||
+                pos.col < 0 || pos.col >= field.get(0).size()) {
             System.out.println("Position out of bounds: " + pos);
             return false;
         }
 
         // Check cell content
-        char cell = field[pos.row][pos.col];
-        boolean isValid = cell == EMPTY || cell == COIN;
+        String cell = field.get(pos.row).get(pos.col);
+        boolean isValid = cell.equals(EMPTY) || cell.equals(COIN);
 
         if (!isValid) {
             System.out.println("Invalid cell content at " + pos + ": " + cell);
@@ -639,7 +551,7 @@ public class SpaceshipController {
         return isValid;
     }
 
-    private boolean hasNearbyAsteroid(char[][] field, Position pos) {
+    private boolean hasNearbyAsteroid(List<List<String>> field, Position pos) {
         // Check all adjacent cells including diagonals
         for (int dr = -1; dr <= 1; dr++) {
             for (int dc = -1; dc <= 1; dc++) {
@@ -650,7 +562,7 @@ public class SpaceshipController {
                 int newCol = pos.col + dc;
 
                 // Check if the position is valid and contains an asteroid
-                if (isValidPosition(field, new Position(newRow, newCol)) && field[newRow][newCol] == ASTEROID) {
+                if (isValidPosition(field, new Position(newRow, newCol)) && field.get(newRow).get(newCol).equals(ASTEROID)) {
                     return true;
                 }
             }
@@ -658,35 +570,12 @@ public class SpaceshipController {
         return false;
     }
 
-    private String calculateSafeMove(char[][] field, Position playerPos, Direction playerDir) {
-        // Try all possible moves and evaluate safety
-        List<MoveOption> options = new ArrayList<>();
-
-        // Evaluate moving forward
-        Position forward = playerPos.move(playerDir);
-        if (isValidPosition(field, forward)) {
-            double forwardSafety = evaluateSafety(field, forward);
-            options.add(new MoveOption("M", forwardSafety));
-        }
-
-        // Evaluate rotating left
-        Direction leftDir = playerDir.turnLeft();
-        options.add(new MoveOption("L", evaluateSafety(field, playerPos) * 0.9));
-
-        // Evaluate rotating right
-        Direction rightDir = playerDir.turnRight();
-        options.add(new MoveOption("R", evaluateSafety(field, playerPos) * 0.9));
-
-        // Return the safest move
-        return options.stream().max(Comparator.comparingDouble(opt -> opt.score)).map(opt -> opt.move).orElse("M");
-    }
-
     private boolean isInNarrowingDanger(Position pos, int narrowingIn) {
         int dangerZone = 2; // Buffer for safety
         return narrowingIn <= dangerZone && (pos.row <= narrowingIn || pos.row >= FIELD_SIZE - narrowingIn || pos.col <= narrowingIn || pos.col >= FIELD_SIZE - narrowingIn);
     }
 
-    private Position findSafePosition(char[][] field, int narrowingIn) {
+    private Position findSafePosition(List<List<String>> field, int narrowingIn) {
         Position center = new Position(FIELD_SIZE / 2, FIELD_SIZE / 2);
         int safeRadius = Math.max(2, FIELD_SIZE / 2 - narrowingIn - 1);
 
@@ -695,7 +584,7 @@ public class SpaceshipController {
             for (int dx = -r; dx <= r; dx++) {
                 for (int dy = -r; dy <= r; dy++) {
                     Position pos = new Position(center.row + dx, center.col + dy);
-                    if (isValidPosition(field, pos) && field[pos.row][pos.col] == EMPTY) {
+                    if (isValidPosition(field, pos) && field.get(pos.row).get(pos.col).equals(EMPTY)) {
                         return pos;
                     }
                 }
@@ -704,7 +593,7 @@ public class SpaceshipController {
         return null;
     }
 
-    private boolean isInCollisionDanger(char[][] field, Position pos, Direction dir) {
+    private boolean isInCollisionDanger(List<List<String>>  field, Position pos, Direction dir) {
         List<Position> enemies = findEntities(field, ENEMY);
         for (Position enemy : enemies) {
             if (willCollide(field, pos, dir, enemy, getEnemyDirection(field, enemy))) {
@@ -714,13 +603,13 @@ public class SpaceshipController {
         return false;
     }
 
-    private boolean willCollide(char[][] field, Position pos1, Direction dir1, Position pos2, Direction dir2) {
+    private boolean willCollide(List<List<String>>  field, Position pos1, Direction dir1, Position pos2, Direction dir2) {
         Position next1 = pos1.move(dir1);
         Position next2 = pos2.move(dir2);
         return next1.equals(next2) || next1.equals(pos2) || next2.equals(pos1);
     }
 
-    private String calculateEvasiveMove(char[][] field, Position pos, Direction dir) {
+    private String calculateEvasiveMove(List<List<String>>  field, Position pos, Direction dir) {
         // Try all possible moves and evaluate safety
         List<MoveOption> options = new ArrayList<>();
 
@@ -737,7 +626,7 @@ public class SpaceshipController {
         return options.stream().max(Comparator.comparingDouble(opt -> opt.score)).map(opt -> opt.move).orElse("M");
     }
 
-    private double evaluateSafety(char[][] field, Position pos) {
+    private double evaluateSafety(List<List<String>> field, Position pos) {
         double safety = 1.0;
 
         // Reduce safety for nearby enemies
@@ -757,7 +646,7 @@ public class SpaceshipController {
         return safety;
     }
 
-    private List<Position> findEnemiesInRange(char[][] field, Position pos, Direction dir) {
+    private List<Position> findEnemiesInRange(List<List<String>> field, Position pos, Direction dir) {
         List<Position> enemies = new ArrayList<>();
         Position current = pos;
 
@@ -765,10 +654,10 @@ public class SpaceshipController {
             current = current.move(dir);
             if (!isValidPosition(field, current)) break;
 
-            if (field[current.row][current.col] == ENEMY) {
+            if (field.get(current.row).get(current.col).equals(ENEMY)) {
                 enemies.add(current);
                 break; // Stop at first enemy as shot won't go further
-            } else if (field[current.row][current.col] == ASTEROID) {
+            } else if (field.get(current.row).get(current.col).equals(ASTEROID)) {
                 break;
             }
         }
@@ -776,7 +665,7 @@ public class SpaceshipController {
         return enemies;
     }
 
-    private boolean isSafeToFire(char[][] field, Position pos, Direction dir, List<Position> targets) {
+    private boolean isSafeToFire(List<List<String>> field, Position pos, Direction dir, List<Position> targets) {
         // Check if any non-target enemy can fire back
         List<Position> allEnemies = findEntities(field, ENEMY);
         for (Position enemy : allEnemies) {
@@ -790,19 +679,19 @@ public class SpaceshipController {
         return true;
     }
 
-    private boolean canHit(char[][] field, Position from, Position target, Direction dir) {
+    private boolean canHit(List<List<String>>  field, Position from, Position target, Direction dir) {
         Position current = from;
         for (int i = 1; i <= FIRE_RANGE; i++) {
             current = current.move(dir);
             if (!isValidPosition(field, current)) break;
 
             if (current.equals(target)) return true;
-            if (field[current.row][current.col] == ASTEROID) break;
+            if (field.get(current.row).get(current.col).equals(ASTEROID)) break;
         }
         return false;
     }
 
-    private Direction getEnemyDirection(char[][] field, Position pos) {
+    private Direction getEnemyDirection(List<List<String>> field, Position pos) {
         String cellContent = rawField.get(pos.row).get(pos.col);
         System.out.println("Enemy cell content: '" + cellContent + "'");
 
@@ -925,7 +814,7 @@ public class SpaceshipController {
         }
     }
 
-    private String getMovementCommand(char[][] field, Position from, Direction currentDir, Position to) {
+    private String getMovementCommand(List<List<String>>  field, Position from, Direction currentDir, Position to) {
         System.out.println("Getting movement command from " + from + " to " + to + ", current direction: " + currentDir);
 
         Direction targetDir = getTargetDirection(from, to);
@@ -964,11 +853,11 @@ public class SpaceshipController {
         }
     }
 
-    private List<Position> findEntities(char[][] field, char entityType) {
+    private List<Position> findEntities(List<List<String>>  field, String entityType) {
         List<Position> positions = new ArrayList<>();
         for (int i = 0; i < FIELD_SIZE; i++) {
             for (int j = 0; j < FIELD_SIZE; j++) {
-                if (field[i][j] == entityType) {
+                if (field.get(i).get(j).equals(entityType)) {
                     positions.add(new Position(i, j));
                 }
             }
@@ -976,10 +865,10 @@ public class SpaceshipController {
         return positions;
     }
 
-    private Position findPlayer(char[][] field) {
-        for (int i = 0; i < field.length; i++) {
-            for (int j = 0; j < field[i].length; j++) {
-                if (field[i][j] == PLAYER) {
+    private Position findPlayer(List<List<String>> field) {
+        for (int i = 0; i < field.size(); i++) {
+            for (int j = 0; j < field.get(i).size(); j++) {
+                if (field.get(i).get(j).equals(PLAYER)) {
                     return new Position(i, j);
                 }
             }
