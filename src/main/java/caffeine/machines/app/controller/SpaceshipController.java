@@ -52,12 +52,16 @@ public class SpaceshipController {
     }
 
     private void printField(List<List<String>> field) {
-        for (List<String> row : field) {
-            StringBuilder rowStr = new StringBuilder();
-            for (String cell : row) {
-                rowStr.append(String.format("%-6s", cell.isEmpty() ? "_" : cell));
+        System.out.println("Parsed field state:");
+        for (int i = 0; i < field.size(); i++) {
+            StringBuilder row = new StringBuilder();
+            for (int j = 0; j < field.get(i).size(); j++) {
+                String cell = field.get(i).get(j);
+                String display = cell.isEmpty() ? "_" :
+                        cell.equals("*") ? "A" : cell;
+                row.append(String.format("%-6s", display));
             }
-            System.out.println(rowStr.toString());
+            System.out.println(row.toString());
         }
     }
 
@@ -66,8 +70,13 @@ public class SpaceshipController {
         for (int i = 0; i < FIELD_SIZE; i++) {
             for (int j = 0; j < FIELD_SIZE; j++) {
                 String cell = fieldList.get(i).get(j);
-                // Just store the first character for now
-                field[i][j] = cell.isEmpty() ? EMPTY : cell.charAt(0);
+                if (cell.isEmpty()) {
+                    field[i][j] = EMPTY;
+                } else if (cell.equals("*")) {
+                    field[i][j] = ASTEROID; // Treat asterisk as asteroid
+                } else {
+                    field[i][j] = cell.charAt(0);
+                }
             }
         }
         return field;
@@ -286,25 +295,25 @@ public class SpaceshipController {
     }
 
     private boolean isInFiringRange(Position from, Position target, Direction direction, char[][] field) {
+        System.out.println("Checking firing range from " + from + " to " + target + " in direction " + direction);
         Position current = from;
 
-        // Check all positions in firing range
         for (int i = 1; i <= FIRE_RANGE; i++) {
             current = current.move(direction);
+            System.out.println("Checking position: " + current);
 
-            // Check if we've hit a boundary
             if (!isValidPosition(field, current)) {
+                System.out.println("Position invalid or blocked");
                 return false;
             }
 
-            // If we've found our target
             if (current.equals(target)) {
+                System.out.println("Target found in range");
                 return true;
             }
 
-            // Stop checking if we hit an asteroid or another entity that would block the shot
-            char cellContent = field[current.row][current.col];
-            if (cellContent == ASTEROID || cellContent == ENEMY) {
+            if (field[current.row][current.col] == ASTEROID) {
+                System.out.println("Blocked by asteroid");
                 return false;
             }
         }
@@ -386,13 +395,13 @@ public class SpaceshipController {
     }
 
     private boolean isValidPosition(char[][] field, Position pos) {
-        boolean valid = pos.row >= 0 && pos.row < field.length && pos.col >= 0 && pos.col < field[0].length && field[pos.row][pos.col] != ASTEROID;
-
-        if (!valid) {
-            System.out.println("Invalid position: " + pos.row + "," + pos.col);
-        }
-        return valid;
+        return pos.row >= 0 &&
+                pos.row < field.length &&
+                pos.col >= 0 &&
+                pos.col < field[0].length &&
+                (field[pos.row][pos.col] == EMPTY || field[pos.row][pos.col] == COIN);
     }
+
 
     private boolean hasNearbyAsteroid(char[][] field, Position pos) {
         // Check all adjacent cells including diagonals
@@ -601,7 +610,7 @@ public class SpaceshipController {
 
         @Override
         public String toString() {
-            return String.format("Position{row=%d, col=%d}", row, col);
+            return String.format("(%d,%d)", row, col);
         }
     }
 
